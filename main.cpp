@@ -13,7 +13,8 @@ using namespace std;
 vector<vector<Cell>> grid;
 list<mnPoint> L,L1;
 vector<list<mnPoint>> pathTiers;
-int rows(10), cols(10), numBlocks(14), curBid(0);
+//int rows(15), cols(15), numBlocks(50), curBid(0);
+int rows(5), cols(5), numBlocks(3), curBid(0);
 bool targetFound(false);
 
 // some forward declarations
@@ -39,15 +40,19 @@ void addToPathTier(mnPoint P);
 int manhattanDist(mnPoint P1, mnPoint P2);
 void updateL();
 void printExplored();
+void printExploredAker();
 void printL();
 void printL1();
 void printST(mnPoint source, mnPoint target);
 bool Ligible(mnPoint P);
 bool possiblePrev (mnPoint P,Cell cur);
 mnPoint findPrev(mnPoint P);
+mnPoint findPrevAker (mnPoint P);
+bool possiblePrevAker (mnPoint P,Cell cur);
 void printRoute();
 void printRouteAkers();
 void backTrace(mnPoint source, mnPoint target);
+void backTraceAker(mnPoint source, mnPoint target);
 
 //begin functions
 mnPoint getRandomPt() {
@@ -295,6 +300,32 @@ void printExplored() {
     std::cout << "Done printing cell content\n" << std::endl;
 }
 
+void printExploredAker() {
+    std::cout << "Begin printing Akers Weight content" << std::endl;
+    for (int m = 0; m < cols; ++m) {
+        for (int n = 0; n < rows; ++n) {
+            auto x = grid[m][n].contents;
+            if (x==obstacle){
+                cout << "X  ";
+            } else if (x==source) {
+                cout << "S  ";
+            } else if (x==target) {
+                cout << "T  ";
+            } else{ // x == open
+                if (grid[m][n].viewStatus == explored) {
+//                    cout << "v  "; // will show all explored cells, not their weights
+                    cout << grid[m][n].myAkersWt << "  ";
+                } else {
+                    cout << "-  ";
+                }
+            }
+        }
+        cout << "\n";
+    }
+
+    std::cout << "Done printing Akers Weights\n" << std::endl;
+}
+
 void printL() {
     cout << "L contains: ";
     for (auto it: L) {
@@ -360,38 +391,49 @@ bool possiblePrev (mnPoint P, Cell cur) {
 
     return true;
 }
+bool possiblePrevAker (mnPoint P,Cell cur) {
+    int m(P.m),n(P.n);
+    if (!onGrid(P)) {
+        return false;
+    }
+
+    Cell thisCell = grid[m][n];
+    if (thisCell.contents == obstacle) {
+        return false;
+    }
+
+    if (thisCell.viewStatus == newCell) {
+        return false;
+    }
+
+    if(cur.myAkersWt == c){
+        if (thisCell.myAkersWt == b) { return true;}
+    } else if (cur.myAkersWt == b) {
+        if (thisCell.myAkersWt == a) { return true;}
+    } else if (cur.myAkersWt == a) {
+        if (thisCell.myAkersWt == c) { return true;}
+    }
+
+    return false;
+}
+
+mnPoint findPrevAker (mnPoint P) {
+    Cell cur = grid[P.m][P.n];
+    mnPoint up(P.m -1,P.n);
+    if (possiblePrevAker(up,cur)) {return up;}
+
+    mnPoint down(P.m +1,P.n);
+    if (possiblePrevAker(down,cur)) {return down;}
+
+    mnPoint right(P.m,P.n+1);
+    if (possiblePrevAker(right,cur)) {return right;}
+
+    mnPoint left(P.m, P.n-1);
+    return left;
+}
+
 
 mnPoint findPrev(mnPoint P) {
-/*
-    mnPoint upP(P.m-1,P.n),downP(P.m+1,P.n),rightP(P.m,P.n+1),leftP(P.m,P.n-1);
-
-    // preferred directions: up, down, left, right
-    vector<mnPoint> revOrder;
-    revOrder.push_back(rightP); revOrder.push_back(leftP);revOrder.push_back(downP);revOrder.push_back(upP);
-
-    vector<mnPoint> order;
-
-    // consider only explored elements
-    for (mnPoint neighborIt: revOrder) {
-        Cell c = grid[neighborIt.m][neighborIt.n];
-        if (onGrid(neighborIt)) {
-            if (c.viewStatus == explored && c.leeWt != -1) {
-                order.push_back(neighborIt);
-            }
-        }
-    }
-
-    // find minimal element
-    int x = order.size();
-    mnPoint prevPt = order[0];
-    for (int i = 1; i < x; ++i) {
-        mnPoint tempPt = order[i];
-        if (grid[prevPt.m][prevPt.n].leeWt < grid[tempPt.m][tempPt.n].leeWt){
-            prevPt = order[i];
-        }
-    }
-    return prevPt;
-*/
     Cell cur = grid[P.m][P.n];
     mnPoint up(P.m -1,P.n);
     if (possiblePrev(up,cur)) {return up;}
@@ -404,7 +446,6 @@ mnPoint findPrev(mnPoint P) {
 
     mnPoint left(P.m, P.n-1);
     return left;
-
 }
 
 void printRoute() {
@@ -477,6 +518,23 @@ void backTrace(mnPoint source, mnPoint target) {
     printRouteAkers();
 }
 
+void backTraceAker(mnPoint source, mnPoint target) {
+    stack<mnPoint> route;
+    route.push(target);
+    while (route.top() != source) {
+        route.push(findPrevAker(route.top()));
+    }
+
+    while (!route.empty()) {
+        mnPoint rtPt = route.top();
+        route.pop();
+        grid[rtPt.m][rtPt.n].onRoute = true;
+    }
+
+    printRoute();
+    printRouteAkers();
+}
+
 int main() {
     std::cout << "Hello, World!" << std::endl;
     srand(time(0));
@@ -510,7 +568,9 @@ int main() {
         printExplored();
         cout << "-------------------------------------------" << endl;
     }
+    printExploredAker();
 
-    backTrace(mySource,myTarget);
+    //backTrace(mySource,myTarget);
+    backTraceAker(mySource,myTarget);
     return 0;
 }
