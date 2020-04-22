@@ -28,7 +28,10 @@ void printCoordinates();
 void printCellTypes();
 bool onGrid(mnPoint temp);
 bool exploreCell (mnPoint P);
+akerWt nextAker(Cell cur);
+bool exploreCellAker(mnPoint P, mnPoint cur);
 void exploreL (mnPoint P);
+void exploreLAker(mnPoint P);
 void iterateL ();
 bool termCriteriaMet();
 void pathTiersInit(int maxLength = cols*rows);
@@ -43,6 +46,7 @@ bool Ligible(mnPoint P);
 bool possiblePrev (mnPoint P,Cell cur);
 mnPoint findPrev(mnPoint P);
 void printRoute();
+void printRouteAkers();
 void backTrace(mnPoint source, mnPoint target);
 
 //begin functions
@@ -62,6 +66,8 @@ mnPoint getOpenPt() {
 void setSource(mnPoint P) {
     grid[P.m][P.n].contents=source;
     grid[P.m][P.n].viewStatus=explored;
+    grid[P.m][P.n].myAkersWt=c;
+    grid[P.m][P.n].prevAkersWt=b;
 }
 
 void setTarget(mnPoint P) {
@@ -89,7 +95,7 @@ void obstacleInit() {
     mnPoint P = getRandomPt();
     for (int i = 0; i < numBlocks;) {
         P = getRandomPt();
-        if (grid[P.m][P.n].contents != obstacle) {
+        if (grid[P.m][P.n].contents == open) {
             setObstacle(P); ++i;
         }
     }
@@ -163,6 +169,46 @@ bool exploreCell(mnPoint P) {
    return false;
 }
 
+// sequence a,b,c,a,b,c...
+akerWt nextAker(Cell cur){
+    if (cur.myAkersWt == c) {
+        return a;
+    } else if (cur.myAkersWt == b) {
+        return c;
+    }
+    return b;
+}
+
+// akers method version
+bool exploreCellAker(mnPoint P, mnPoint cur) {
+    // false if off grid or occupied
+    if (onGrid(P) && grid[P.m][P.n].contents != obstacle) {
+        // false if already looked at this cell
+        if (grid[P.m][P.n].viewStatus == newCell) {
+            // explore the cell...
+            // false if we use the cell now
+            if (grid[P.m][P.n].cost == 1) { // add if cellCost = current bid
+                grid[P.m][P.n].myAkersWt = nextAker(grid[cur.m][cur.n]);
+                grid[P.m][P.n].prevAkersWt = grid[cur.m][cur.n].myAkersWt;
+                grid[P.m][P.n].leeWt = curBid;
+                L1.push_back(P);
+                addToPathTier(P);
+                grid[P.m][P.n].viewStatus = explored;
+                if (grid[P.m][P.n].contents==target) {
+                    targetFound = true;
+                    cout << "\nTarget found with path cost = " << curBid;
+                }
+            }
+                // true if we still need to consider this cell
+            else { // this cell cost extra, but next round it is possible to add
+                --grid[P.m][P.n].cost;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // for a cell in L, decide what to put in L1;
 void exploreL(mnPoint P) {
     mnPoint up = {P.m-1,P.n}; exploreCell(up);
@@ -171,9 +217,20 @@ void exploreL(mnPoint P) {
     mnPoint left = {P.m, P.n-1}; exploreCell(left);
 }
 
+// for a cell in L, decide what to put in L1;
+void exploreLAker(mnPoint P) {
+    mnPoint up = {P.m-1,P.n}; exploreCellAker(up,P);
+    mnPoint down = {P.m+1,P.n}; exploreCellAker(down,P);
+    mnPoint right = {P.m, P.n+1}; exploreCellAker(right,P);
+    mnPoint left = {P.m, P.n-1}; exploreCellAker(left,P);
+}
+
+
+
 void iterateL() {
     for (auto it: L) {
-        exploreL(it);
+        //exploreL(it);
+        exploreLAker(it);
     }
 }
 
@@ -351,7 +408,7 @@ mnPoint findPrev(mnPoint P) {
 }
 
 void printRoute() {
-    std::cout << "Begin route" << std::endl;
+    std::cout << "Begin Lee's route" << std::endl;
     for (int m = 0; m < cols; ++m) {
         for (int n = 0; n < rows; ++n) {
             cellType x = grid[m][n].contents;
@@ -374,7 +431,33 @@ void printRoute() {
         cout << "\n";
     }
 
-    std::cout << "Done printing route\n" << std::endl;
+    std::cout << "Finished printing Lee's route\n" << std::endl;
+}
+
+void printRouteAkers() {
+    std::cout << "Begin Aker's route" << std::endl;
+    for (int m = 0; m < cols; ++m) {
+        for (int n = 0; n < rows; ++n) {
+            cellType x = grid[m][n].contents;
+            if (x==obstacle){
+                cout << "X  ";
+            } else if (x==source) {
+                cout << "S  ";
+            } else if (x==target) {
+                cout << "T  ";
+            } else{ // x == open
+                bool included = grid[m][n].onRoute;
+                if (included) {
+                    cout << grid[m][n].myAkersWt << "  ";
+                } else {
+                    cout << "_  ";
+                }
+            }
+
+        }
+        cout << "\n";
+    }
+    std::cout << "Done printing Aker's route\n" << std::endl;
 }
 
 void backTrace(mnPoint source, mnPoint target) {
@@ -391,6 +474,7 @@ void backTrace(mnPoint source, mnPoint target) {
     }
 
     printRoute();
+    printRouteAkers();
 }
 
 int main() {
@@ -401,8 +485,10 @@ int main() {
     gridInit();
     obstacleInit();
     pathTiersInit();
-    mnPoint mySource = getOpenPt(); setSource(mySource);
-    mnPoint myTarget = getOpenPt(); setTarget(myTarget);
+    mnPoint mySource = getOpenPt();
+    setSource(mySource);
+    mnPoint myTarget = getOpenPt();
+    setTarget(myTarget);
 
     // printables
     //printCoordinates();

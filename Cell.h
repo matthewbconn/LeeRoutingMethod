@@ -17,7 +17,7 @@ public:
     cellType contents; // what type of square
     cellStatus viewStatus; // have we seen it before
     int leeWt; // weight we'll assign here
-    int akersWt; // improved Lee's method w/ a b c a b c...
+    akerWt myAkersWt, prevAkersWt; // improved Lee's method w/ a b c a b c...
     int cost; // how much to use this cell (if irregular)
     bool onRoute; // for backtrace
 
