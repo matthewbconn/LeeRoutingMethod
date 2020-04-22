@@ -13,8 +13,8 @@ using namespace std;
 vector<vector<Cell>> grid;
 list<mnPoint> L,L1;
 vector<list<mnPoint>> pathTiers;
-//int rows(15), cols(15), numBlocks(50), curBid(0);
-int rows(5), cols(5), numBlocks(3), curBid(0);
+int rows(8), cols(8), numBlocks(12), curBid(0);
+//int rows(5), cols(5), numBlocks(3), curBid(0);
 bool targetFound(false);
 
 // some forward declarations
@@ -33,7 +33,8 @@ akerWt nextAker(Cell cur);
 bool exploreCellAker(mnPoint P, mnPoint cur);
 void exploreL (mnPoint P);
 void exploreLAker(mnPoint P);
-void iterateL ();
+void iterateL_Lee ();
+void iterateL_Aker();
 bool termCriteriaMet();
 void pathTiersInit(int maxLength = cols*rows);
 void addToPathTier(mnPoint P);
@@ -53,7 +54,12 @@ void printRoute();
 void printRouteAkers();
 void backTrace(mnPoint source, mnPoint target);
 void backTraceAker(mnPoint source, mnPoint target);
+bool centerHeuristic(mnPoint source, mnPoint target);
+void leeSolve(mnPoint mySource, mnPoint myTarget);
+void akerSolve(mnPoint mySource, mnPoint myTarget);
+// ------------------------------------------------------
 
+// ------------------------------------------------------
 //begin functions
 mnPoint getRandomPt() {
     return mnPoint(rand()%rows, rand()%cols);
@@ -146,7 +152,7 @@ bool onGrid(mnPoint temp) {
     return !(temp.m < 0 || temp.n < 0 || temp.m >= rows || temp.n >= cols);
 }
 
-// also adds to L1
+// add cells to L1
 bool exploreCell(mnPoint P) {
     // false if off grid or occupied
     if (onGrid(P) && grid[P.m][P.n].contents != obstacle) {
@@ -230,11 +236,14 @@ void exploreLAker(mnPoint P) {
     mnPoint left = {P.m, P.n-1}; exploreCellAker(left,P);
 }
 
-
-
-void iterateL() {
+void iterateL_Lee(){
     for (auto it: L) {
-        //exploreL(it);
+        exploreL(it); // use this if not doing akers method
+    }
+}
+
+void iterateL_Aker() {
+    for (auto it: L) {
         exploreLAker(it);
     }
 }
@@ -391,6 +400,7 @@ bool possiblePrev (mnPoint P, Cell cur) {
 
     return true;
 }
+
 bool possiblePrevAker (mnPoint P,Cell cur) {
     int m(P.m),n(P.n);
     if (!onGrid(P)) {
@@ -431,7 +441,6 @@ mnPoint findPrevAker (mnPoint P) {
     mnPoint left(P.m, P.n-1);
     return left;
 }
-
 
 mnPoint findPrev(mnPoint P) {
     Cell cur = grid[P.m][P.n];
@@ -515,7 +524,6 @@ void backTrace(mnPoint source, mnPoint target) {
     }
 
     printRoute();
-    printRouteAkers();
 }
 
 void backTraceAker(mnPoint source, mnPoint target) {
@@ -535,6 +543,53 @@ void backTraceAker(mnPoint source, mnPoint target) {
     printRouteAkers();
 }
 
+bool centerHeuristic(mnPoint mysource, mnPoint mytarget) {
+    mnPoint center(rows/2,cols/2);
+    int targetDist = manhattanDist(center,mytarget);
+    int sourceDist = manhattanDist(center,mysource);
+
+    // Select the one closer to the edge as the source
+    if (targetDist > sourceDist) {
+        // need to flip source and target
+        swap(grid[mysource.m][mysource.n],grid[mytarget.m][mytarget.n]);
+        return true;
+    }
+    return false;
+}
+
+void leeSolve(mnPoint mySource, mnPoint myTarget){
+    while (!termCriteriaMet()){
+        cout << "-------------------------------------------" << endl;
+        ++curBid;
+        cout << "Begin iteration for cost = " << curBid << endl;
+        printL();
+        iterateL_Lee();
+        updateL();
+        printExplored();
+        cout << "-------------------------------------------" << endl;
+    }
+
+    printExplored();
+    backTrace(mySource, myTarget);
+
+}
+
+void akerSolve(mnPoint mySource, mnPoint myTarget){
+    while (!termCriteriaMet()){
+        cout << "-------------------------------------------" << endl;
+        ++curBid;
+        cout << "Begin iteration for cost = " << curBid << endl;
+        printL();
+        iterateL_Aker();
+        updateL();
+        printExploredAker();
+        cout << "-------------------------------------------" << endl;
+    }
+
+    printExploredAker();
+    backTraceAker(mySource,myTarget);
+};
+
 int main() {
     std::cout << "Hello, World!" << std::endl;
     srand(time(0));
@@ -547,30 +602,26 @@ int main() {
     setSource(mySource);
     mnPoint myTarget = getOpenPt();
     setTarget(myTarget);
-
-    // printables
-    //printCoordinates();
     printCellTypes();
     printST(mySource,myTarget);
+
+
+    bool swapST = centerHeuristic(mySource,myTarget);
+    if (swapST) {
+        cout << "Switching source & target to reduce search time" << endl;
+        swap(mySource,myTarget);
+        // reprintables
+        printCellTypes();
+        printST(mySource,myTarget);
+    }
+
+
 
     // find a path thru
     L.clear();L1.clear();
     L.push_back(mySource);
     printL(); printL1();
 
-    while (!termCriteriaMet()){
-        cout << "-------------------------------------------" << endl;
-        ++curBid;
-        cout << "Begin iteration for cost = " << curBid << endl;
-        printL();
-        iterateL();
-        updateL();
-        printExplored();
-        cout << "-------------------------------------------" << endl;
-    }
-    printExploredAker();
-
-    //backTrace(mySource,myTarget);
-    backTraceAker(mySource,myTarget);
+    akerSolve(mySource,myTarget);
     return 0;
 }
